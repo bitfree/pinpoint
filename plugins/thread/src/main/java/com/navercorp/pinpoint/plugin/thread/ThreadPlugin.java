@@ -38,16 +38,20 @@ public class ThreadPlugin implements ProfilerPlugin, MatchableTransformTemplateA
         ThreadConfig threadConfig = new ThreadConfig(context.getConfig());
 
         logger.info("init {},config:{}", this.getClass().getSimpleName(), threadConfig);
-        if (StringUtils.isEmpty(threadConfig.getThreadMatchPackage())) {
+        String threadMatchPackages = threadConfig.getThreadMatchPackage();
+        if (StringUtils.isEmpty(threadMatchPackages)) {
             logger.info("thread plugin package is empty,skip it");
             return;
         }
-        addRunnableInterceptor(threadConfig);
-        addCallableInterceptor(threadConfig);
+        List<String> threadMatchPackageList = StringUtils.tokenizeToStringList(threadMatchPackages, ",");
+        for (String threadMatchPackage : threadMatchPackageList) {
+            addRunnableInterceptor(threadMatchPackage);
+            addCallableInterceptor(threadMatchPackage);
+        }
     }
 
-    private void addRunnableInterceptor(ThreadConfig threadConfig) {
-        Matcher matcher = Matchers.newPackageBasedMatcher(threadConfig.getThreadMatchPackage(), new InterfaceInternalNameMatcherOperand("java.lang.Runnable", true));
+    private void addRunnableInterceptor(String threadMatchPackage) {
+        Matcher matcher = Matchers.newPackageBasedMatcher(threadMatchPackage, new InterfaceInternalNameMatcherOperand("java.lang.Runnable", true));
         transformTemplate.transform(matcher, RunnableTransformCallback.class);
     }
 
@@ -56,8 +60,7 @@ public class ThreadPlugin implements ProfilerPlugin, MatchableTransformTemplateA
         public byte[] doInTransform(Instrumentor instrumentor, ClassLoader classLoader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws InstrumentException {
             final InstrumentClass target = instrumentor.getInstrumentClass(classLoader, className, protectionDomain, classfileBuffer);
             List<InstrumentMethod> allConstructor = target.getDeclaredConstructors();
-            for (int i = 0; i < allConstructor.size(); i++) {
-                InstrumentMethod instrumentMethod = allConstructor.get(i);
+            for (InstrumentMethod instrumentMethod : allConstructor) {
                 instrumentMethod.addScopedInterceptor(ThreadConstructorInterceptor.class, ThreadConstants.SCOPE_NAME);
             }
             target.addField(AsyncContextAccessor.class);
@@ -69,8 +72,8 @@ public class ThreadPlugin implements ProfilerPlugin, MatchableTransformTemplateA
         }
     }
 
-    private void addCallableInterceptor(ThreadConfig threadConfig) {
-        Matcher matcher = Matchers.newPackageBasedMatcher(threadConfig.getThreadMatchPackage(), new InterfaceInternalNameMatcherOperand("java.util.concurrent.Callable", true));
+    private void addCallableInterceptor(String threadMatchPackage) {
+        Matcher matcher = Matchers.newPackageBasedMatcher(threadMatchPackage, new InterfaceInternalNameMatcherOperand("java.util.concurrent.Callable", true));
         transformTemplate.transform(matcher, CallableTransformCallback.class);
     }
 
@@ -79,8 +82,7 @@ public class ThreadPlugin implements ProfilerPlugin, MatchableTransformTemplateA
         public byte[] doInTransform(Instrumentor instrumentor, ClassLoader classLoader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws InstrumentException {
             final InstrumentClass target = instrumentor.getInstrumentClass(classLoader, className, protectionDomain, classfileBuffer);
             List<InstrumentMethod> allConstructor = target.getDeclaredConstructors();
-            for (int i = 0; i < allConstructor.size(); i++) {
-                InstrumentMethod instrumentMethod = allConstructor.get(i);
+            for (InstrumentMethod instrumentMethod : allConstructor) {
                 instrumentMethod.addScopedInterceptor(ThreadConstructorInterceptor.class, ThreadConstants.SCOPE_NAME);
             }
             target.addField(AsyncContextAccessor.class);
